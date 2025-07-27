@@ -1,0 +1,3 @@
+[submodule "magnus_archives_transcripts"]
+	path = magnus_archives_transcripts
+	url = https://github.com/Snarp/magnus_archives_transcripts

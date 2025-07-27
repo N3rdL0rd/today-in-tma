@@ -1,0 +1,158 @@
+<!doctype html>
+<html lang="en" class="holiday-css-dark">
+
+<head>
+    <meta charset="utf-8" />
+    <title>Today in TMA</title>
+    <meta name="description" content="" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/holiday.css@0.11.2" />
+    <link href="https://cdn.jsdelivr.net/npm/vanilla-calendar-pro/styles/index.css" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/vanilla-calendar-pro/index.js" defer></script>
+
+    <style>
+        .vanilla-calendar-date--holiday {
+            position: relative;
+            color: #f00 !important;
+            font-weight: bold;
+        }
+        .vanilla-calendar-date--holiday::after {
+            content: '';
+            position: absolute;
+            bottom: 5px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 5px;
+            height: 5px;
+            border-radius: 50%;
+            background-color: #f00;
+        }
+        #calendar-container {
+            margin-bottom: 2rem;
+        }
+    </style>
+</head>
+
+<body>
+    <header>
+        <h1>
+            Today in the Magnus Archives
+        </h1>
+    </header>
+    <main class="container">
+        <h1>Today in The Magnus Archives</h1>
+
+        <div id="calendar-container">
+            <div id="calendar"></div>
+        </div>
+        <section id="tma-container">
+            <p><progress indeterminate></progress> <i>Searching the archives...</i></p>
+        </section>
+    </main>
+    <footer>Made with 💖 by N3rdL0rd. The Magnus Archives, and by extension these transcripts are licensed under a
+        Creative Commons Attribution NonCommercial ShareAlike 4.0 International license. Transcripts sourced from <a
+            href="https://github.com/Snarp/magnus_archives_transcripts">Snarp/magnus_archives_transcripts</a> on Github.
+    </footer>
+
+    <script>
+
+    document.addEventListener('DOMContentLoaded', async () => {
+
+        const statementContainer = document.getElementById('tma-container');
+        const dataUrl = './statements.json';
+
+        function getTargetDate() {
+            const params = new URLSearchParams(window.location.search);
+            const dateParam = params.get('date');
+            if (dateParam) return new Date(dateParam + 'T12:00:00Z');
+            return new Date();
+        }
+
+        try {
+            const response = await fetch(dataUrl);
+            if (!response.ok) throw new Error(`Network response was not ok: ${response.statusText}`);
+            const allStatements = await response.json();
+
+            initializeCalendar(allStatements);
+            displayStatementsForDate(allStatements, getTargetDate());
+
+        } catch (error) {
+            console.error('Failed to load or process TMA data:', error);
+            statementContainer.innerHTML = `<article><p style="color: var(--pico-color-red-500);">Error: Could not load statement data. Please check the console.</p></article>`;
+        }
+
+        function initializeCalendar(statements) {
+            const { Calendar } = window.VanillaCalendarPro;
+
+            const statementMonthDays = new Set(
+                statements.map(s => s.statement_date.substring(5))
+            );
+
+            const markedDates = [];
+            const startYear = 2000;
+            const endYear = new Date().getFullYear() + 5;
+
+            for (let year = startYear; year <= endYear; year++) {
+                statementMonthDays.forEach(monthDay => {
+                    markedDates.push(`${year}-${monthDay}`);
+                });
+            }
+            
+            const options = {
+                onClickDate(self) {
+                    const selectedDate = self.context.selectedDates[0];
+                    if (selectedDate) {
+                        window.location.search = '?date=' + selectedDate;
+                    }
+                },
+                selectedWeekends: [],
+                dateToday: getTargetDate(),
+                selectedHolidays: markedDates
+            };
+            const calendar = new Calendar('#calendar', options);
+        
+            calendar.init();
+        }
+
+        function displayStatementsForDate(statements, targetDate) {
+            const month = targetDate.getUTCMonth() + 1;
+            const day = targetDate.getUTCDate();
+
+            const todaysStatements = statements.filter(statement => {
+                const statementDate = new Date(statement.statement_date + 'T12:00:00Z');
+                return statementDate.getUTCMonth() + 1 === month && statementDate.getUTCDate() === day;
+            });
+
+            const dateHeader = document.createElement('h2');
+            dateHeader.textContent = `${targetDate.toLocaleString('en-US', { month: 'long', day: 'numeric', timeZone: 'UTC' })}`;
+            
+            statementContainer.innerHTML = '';
+            statementContainer.appendChild(dateHeader);
+
+            if (todaysStatements.length === 0) {
+                const p = document.createElement('p');
+                p.textContent = 'No statements were recorded on this day in the archives.';
+                statementContainer.appendChild(p);
+            } else {
+                todaysStatements.forEach(statement => {
+                    const article = document.createElement('article');
+                    const summary = statement.summary.replace(/<br\s*\/?>/gi, ' ');
+                    const statementOf = Array.isArray(statement.statement_of) ? statement.statement_of.join(', ') : 'N/A';
+                    const titleLink = statement.wiki_url ? `<a href="${statement.wiki_url}" target="_blank" rel="noopener noreferrer">${statement.title}</a>` : statement.title;
+
+                    article.innerHTML = `
+                        <header><h3>${titleLink}</h3></header>
+                        <p>
+                            <strong>Statement of:</strong> ${statementOf}<br>
+                            <strong>Original Statement Date:</strong> ${statement.statement_date}
+                        </p>
+                        <blockquote>${summary}</blockquote>`;
+                    statementContainer.appendChild(article);
+                });
+            }
+        }
+    });
+    </script>
+</body>
+
+</html>
